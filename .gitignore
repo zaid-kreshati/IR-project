@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Mac
+.DS_Store
+
+# ir_datasets
+.ir_datasets/
+
+# Ignore saved models
+*.joblib
+models/*.joblib
+
+# Ignore logs
+logs/
+.ir_dataset/
