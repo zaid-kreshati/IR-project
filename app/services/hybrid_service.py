@@ -8,10 +8,7 @@ import asyncio
 
 
 def reciprocal_rank_fusion(rankings: List[List[str]], k: int = 60):
-    """
-    Perform Reciprocal Rank Fusion (RRF) on a list of rankings.
-    Each ranking is a list of doc_ids sorted by relevance (most relevant first).
-    """
+    print("rankings:", len(rankings))
     scores = defaultdict(float)
     for ranking in rankings:
         for rank, doc_id in enumerate(ranking):
@@ -21,22 +18,20 @@ def reciprocal_rank_fusion(rankings: List[List[str]], k: int = 60):
 
 class HybridSearchService:
     def __init__(self, collection_name: str):
+        self.bm25_service = BM25Service(collection_name)
+        self.embed_service = EmbeddingSearcher(collection_name=collection_name)
         self.collection_name = collection_name
-        self.bm25_service = BM25Service()
-        self.embed_service = EmbeddingSearcher()
 
     async def load_models(self):
         print("Loading models for collection:", self.collection_name)
-        await asyncio.to_thread(self.bm25_service.load, self.collection_name)
-        await asyncio.to_thread(self.embed_service.load, self.collection_name)
+        await asyncio.to_thread(self.bm25_service.load)
+        await asyncio.to_thread(self.embed_service.load)
 
     async def search(self, query: str, top_k: int = 10):
+        print("searching....")
         bm25_raw = await asyncio.to_thread(self.bm25_service.search, query, 500000)
-        embed_raw = await asyncio.to_thread(self.embed_service.search, query, self.collection_name, 500000)
+        embed_raw = await asyncio.to_thread(self.embed_service.search, query, 500000)
 
-
-
-        # Extract ranked doc_ids from both sources
         # bm25_ranking = [doc['doc_id'] for doc in bm25_raw]  # Extracting doc_id from each dictionary
         bm25_ranking = [doc['doc_id'] for doc in bm25_raw['results']]  # Extracting from 'results'
 
@@ -44,7 +39,23 @@ class HybridSearchService:
         print(" bm25_ranking:", len(bm25_ranking))
         embed_ranking = [res["doc_id"] for res in embed_raw["results"]]
         print("embed_ranking:",len(embed_ranking))
+        # Apply Reciprocal Rank Fusion
+        fused_results = reciprocal_rank_fusion([bm25_ranking, embed_ranking], k=60)
 
+        return {
+             "count": len(fused_results),
+            "results": [
+                {"doc_id": doc_id, "fused_score": round(score, 4)}
+                for doc_id, score in fused_results[:top_k]
+            ]
+        }
+
+    async def search_with_Index(self, query: str, top_k: int = 10):
+        print("searching with index....")
+        bm25_raw = await asyncio.to_thread(self.bm25_service.search_with_inverted_index, query, 500000)
+        embed_raw = await asyncio.to_thread(self.embed_service.search_vector_index, query, self.collection_name, 500000)
+        bm25_ranking = [doc['doc_id'] for doc in bm25_raw['results']]  # Extracting from 'results'
+        embed_ranking = [res["doc_id"] for res in embed_raw["results"]]
 
         # Apply Reciprocal Rank Fusion
         fused_results = reciprocal_rank_fusion([bm25_ranking, embed_ranking], k=60)

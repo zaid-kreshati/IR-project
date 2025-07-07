@@ -1,7 +1,8 @@
 from fastapi import FastAPI, APIRouter, HTTPException
 from pydantic import BaseModel
 from app.services.load_data import insert_documents
-from app.routes.BasicRouter import router as BasicRouter
+from app.routes.BasicRouterAPI import router as BasicRouterAPI
+from app.routes.BasicRouterWEB import router as BasicRouterWEB
 
 app = FastAPI(
     title="Information Retrieval System",
@@ -10,7 +11,8 @@ app = FastAPI(
 )
 
 # Include feature-specific routers
-app.include_router(BasicRouter, prefix="/Basic", tags=["Document_Representation"])
+app.include_router(BasicRouterAPI, prefix="/Basic/API", tags=["Document_Representation"])
+app.include_router(BasicRouterWEB, prefix="/Basic/WEB", tags=["Document_Representation"])
 
 # -------------------------
 # General Routes
