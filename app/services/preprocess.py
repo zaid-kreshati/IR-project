@@ -223,6 +223,35 @@ def preprocess_text(text: str) -> str:
     return tokens
 
 
+def preprocess_text_embeddings(text):
+    text = text.lower()
+
+    # text = clean_special_chars(text,punct,punct_mapping)
+    text = preprocessing.remove.html_tags(text)
+    text = preprocessing.remove.punctuation(text)
+    text = preprocessing.remove.brackets(text)
+
+    text = preprocessing.replace.emojis(text)
+    text = preprocessing.replace.urls(text)
+    text = preprocessing.remove.accents(text)
+    text = normalize_country_names(text)
+    return text
+
+def preprocess_bm25(text):
+    text = text.lower()
+
+    # text = clean_special_chars(text,punct,punct_mapping)
+    text = preprocessing.remove.html_tags(text)
+    text = preprocessing.remove.punctuation(text)
+    text = preprocessing.remove.brackets(text)
+
+    text = preprocessing.replace.emojis(text)
+    text = preprocessing.replace.urls(text)
+    text = preprocessing.remove.accents(text)
+    text = normalize_country_names(text)
+    return text
+
+
 # ========== Utility Functions ==========
 
 def remove_stopwords(text: str) -> str:
