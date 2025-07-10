@@ -1,9 +1,10 @@
 ### app/services/hybrid_service.py
 from collections import defaultdict
 from typing import List
+import time
 from app.services.bm25_service import BM25Service
 from app.services.embeddings_service import EmbeddingSearcher
-from app.services.preprocess import preprocess_text, preprocess_text_embeddings
+from app.services.preprocess_service import preprocess_text, preprocess_text_embeddings
 import asyncio
 
 
@@ -29,6 +30,8 @@ class HybridSearchService:
 
     async def search(self, query: str, top_k: int = 10):
         print("searching....")
+        start_time = time.time()
+        
         bm25_raw = await asyncio.to_thread(self.bm25_service.search, query, 500000)
         embed_raw = await asyncio.to_thread(self.embed_service.search, query, 500000)
 
@@ -42,16 +45,21 @@ class HybridSearchService:
         # Apply Reciprocal Rank Fusion
         fused_results = reciprocal_rank_fusion([bm25_ranking, embed_ranking], k=60)
 
+        execution_time = time.time() - start_time
+        
         return {
-             "count": len(fused_results),
-            "results": [
-                {"doc_id": doc_id, "fused_score": round(score, 4)}
+             "matched_count": len(fused_results),
+             "execution_time": round(execution_time, 4),
+             "results": [
+                {"doc_id": doc_id, "score": round(score, 4)}
                 for doc_id, score in fused_results[:top_k]
             ]
         }
 
     async def search_with_Index(self, query: str, top_k: int = 10):
         print("searching with index....")
+        start_time = time.time()
+        
         bm25_raw = await asyncio.to_thread(self.bm25_service.search_with_inverted_index, query, 500000)
         embed_raw = await asyncio.to_thread(self.embed_service.search_vector_index, query, self.collection_name, 500000)
         bm25_ranking = [doc['doc_id'] for doc in bm25_raw['results']]  # Extracting from 'results'
@@ -60,9 +68,12 @@ class HybridSearchService:
         # Apply Reciprocal Rank Fusion
         fused_results = reciprocal_rank_fusion([bm25_ranking, embed_ranking], k=60)
 
+        execution_time = time.time() - start_time
+
         return {
              "count": len(fused_results),
-            "results": [
+             "execution_time": round(execution_time, 4),
+             "results": [
                 {"doc_id": doc_id, "fused_score": round(score, 4)}
                 for doc_id, score in fused_results[:top_k]
             ]

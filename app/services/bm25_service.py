@@ -2,8 +2,8 @@
 import joblib
 from rank_bm25 import BM25Okapi
 from sklearn.preprocessing import MinMaxScaler
-from app.services.preprocess import preprocess_bm25
-
+from app.services.preprocess_service import preprocess_bm25
+import time
 from collections import defaultdict
 
 import os
@@ -64,6 +64,8 @@ class BM25Service:
 
     def search(self, query, top_k=10):
         print(f"🔍 Searching BM25 model for collection: {self.collection_name}")
+        start_time = time.time()
+        
         if not self.bm25:
             raise ValueError("BM25 model not built or loaded. Call `build()` or `load()` first.")
     
@@ -80,11 +82,14 @@ class BM25Service:
 
         filtered_ranked = [doc for doc in sorted_ranked if doc[1] > 0]
         
+        execution_time = time.time() - start_time
+        
         return {
-            "matching_count": len(filtered_ranked),
+            "matched_count": len(filtered_ranked),
             "results": [
                 {"doc_id": doc[0], "score": score} for doc, score in filtered_ranked[:top_k]
             ],
+            "execution_time": execution_time
         }
 
         
@@ -110,6 +115,9 @@ class BM25Service:
         return query_inverted_index
 
     def search_with_inverted_index(self, query, top_k=10):
+        print(f"🔍 Searching BM25 model with inverted index for collection: {self.collection_name}")
+        start_time = time.time()
+        
         if not self.bm25:
             raise ValueError("BM25 model not built or loaded. Call `build()` or `load()` first.")
 
@@ -130,10 +138,12 @@ class BM25Service:
 
         filtered_ranked = [doc for doc in sorted_ranked if doc[1] > 0]
         
+        execution_time = time.time() - start_time
+        
         return {
             "matching_count": len(filtered_ranked),
             "results": [
                 {"doc_id": doc[0], "score": score} for doc, score in filtered_ranked[:top_k]
             ],
+            "execution_time": execution_time
         }
-

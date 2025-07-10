@@ -1,21 +1,29 @@
-# Python
+# Python cache
 __pycache__/
 *.pyc
-venv/
 
-# Jupyter
+# Virtual environments
+venv/
+.env/
+
+# Jupyter notebooks
 .ipynb_checkpoints/
 
-# Mac
+# macOS system file
 .DS_Store
 
-# ir_datasets
+# ir_datasets local cache
 .ir_datasets/
+.ir_dataset/  # (You had both forms – keep only the correct one if needed)
 
 # Ignore saved models
 *.joblib
-models/*.joblib
+models/
+.models/       # Optional if using a hidden .models directory
 
-# Ignore logs
+# Logs
 logs/
-.ir_dataset/
+
+# Data and results
+.data/
+.results/

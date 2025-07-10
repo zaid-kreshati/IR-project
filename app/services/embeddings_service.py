@@ -1,3 +1,4 @@
+from codecs import raw_unicode_escape_decode
 from sys import setdlopenflags
 from typing_extensions import Collection
 import joblib
@@ -6,15 +7,14 @@ import sentence_transformers
 from joblib import dump, load
 from sklearn.metrics.pairwise import cosine_similarity
 import torch
-from app.services.preprocess import preprocess_text_embeddings
+from app.services.preprocess_service import preprocess_text_embeddings
 import ir_datasets
 from sentence_transformers import SentenceTransformer, InputExample, losses
 from torch.utils.data import DataLoader
 import os
 import numpy as np
 from annoy import AnnoyIndex
-
-
+import time
 class EmbeddingSearcher:
     def __init__(self, model_name='all-MiniLM-L6-v2', preprocessor=preprocess_text_embeddings,collection_name:str ="documents"):
         self.collection_name = collection_name.replace("/", "-").replace("\\", "_").strip()
@@ -54,6 +54,7 @@ class EmbeddingSearcher:
             if isinstance(doc.get("body"), str) and len(doc["body"]) < 50000
         ]
 
+
         if not raw_docs:
             raise ValueError("No valid documents found.")
 
@@ -68,12 +69,15 @@ class EmbeddingSearcher:
 
         self.document_embeddings = self.model.encode(document_texts)
     
+        print("building vector index....")
         for i, embedding in enumerate(self.document_embeddings):
             self.index.add_item(i, embedding)
         self.index.build(50)  # 10 trees for faster search (can be adjusted for speed vs. accuracy)
   
         
     def search(self, query, top_k=500000, similarity_threshold=0.001):
+        start_time = time.time()
+        
         query_embedding = self.model.encode(query).reshape(1, -1)
         similarities = cosine_similarity(query_embedding, self.document_embeddings).flatten()
         # Map doc_id to similarity score
@@ -90,12 +94,17 @@ class EmbeddingSearcher:
         # Sort by similarity descending
         sorted_dict = sorted(filtered_documents.items(), key=lambda item: item[1], reverse=True)
         matching_count = len(filtered_documents)
+        
+        end_time = time.time()
+        execution_time = end_time - start_time
+        
         return {
-            "matching_count": matching_count,
+            "matched_count": matching_count,
             "results": [
-                {"doc_id": doc_id, "similarity": score}
+                {"doc_id": doc_id, "score": score}
                 for doc_id, score in sorted_dict[:top_k]
             ],
+            "execution_time": execution_time
         }
 
 
@@ -150,17 +159,23 @@ class EmbeddingSearcher:
 
 
     def search_vector_index(self, query, top_k=500000):
+        start_time = time.time()
+        
         query_embedding = self.model.encode(query).reshape(1, -1)
         indices = self.index.get_nns_by_vector(query_embedding.flatten(), top_k)
         results = []
         for idx in indices:
             doc_id = self.documents[idx][0]
             similarity = float(1.0 - cosine_similarity(query_embedding, self.document_embeddings[idx].reshape(1, -1))[0][0])
-            results.append({"doc_id": doc_id, "similarity": similarity})
+            results.append({"doc_id": doc_id, "score": similarity})
     
         matching_count = len(results)  # Simply count all returned results
+        
+        end_time = time.time()
+        execution_time = end_time - start_time
     
         return {
-            "matching_count": matching_count,
+            "execution_time": execution_time,
+            "matched_count": matching_count,
             "results": results,
         }
