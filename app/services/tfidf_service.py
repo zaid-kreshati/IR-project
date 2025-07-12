@@ -71,11 +71,17 @@ class VectorSpaceModel:
         db = client["ir_project"]
         collection = db[self.collection_name]
 
-        docs = [
-            (doc["doc_id"], doc["body"])
-            for doc in collection.find({}, {"_id": 0, "doc_id": 1, "body": 1})
-            if isinstance(doc.get("body"), str) and len(doc["body"]) < 50000
-        ]
+        batch_size = 1000
+        docs = []
+        
+        cursor = collection.find({}, {"_id": 0, "doc_id": 1, "body": 1})
+        for doc in cursor:
+            if isinstance(doc.get("body"), str) and len(doc["body"]) < 50000:
+                # Truncate extremely long document IDs if needed
+                doc_id = str(doc["doc_id"])[:1000] if len(str(doc["doc_id"])) > 1000 else doc["doc_id"]
+                docs.append((doc_id, doc["body"]))
+            if len(docs) >= batch_size:
+                break
 
         if not docs:
             raise ValueError("No valid documents found.")
@@ -86,9 +92,9 @@ class VectorSpaceModel:
         
         self.tfidf_matrix = self.tfidf_vectorizer.fit_transform(texts)
         self.feature_names = self.tfidf_vectorizer.get_feature_names_out()
-    
         # Build Inverted Index
         self.build_inverted_index_tfidf()
+
 
     def search_with_inverted_index(self, query: str, top_k: int = 10, threshold:float =0.0):
         print("🔍 Searching with inverted index...")

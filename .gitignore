@@ -27,3 +27,4 @@ logs/
 # Data and results
 .data/
 .results/
+*.ann

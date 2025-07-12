@@ -1,6 +1,7 @@
 from fastapi import FastAPI, APIRouter
 from app.routes.BasicRouterAPI import router as BasicRouterAPI
 from app.routes.BasicRouterWEB import router as BasicRouterWEB
+from app.routes.AdditionalRouterAPI import router as AdditionalRouterAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
@@ -21,6 +22,7 @@ app.add_middleware(
 # Include feature-specific routers
 app.include_router(BasicRouterAPI, prefix="/Basic/API", tags=["Document_Representation"])
 app.include_router(BasicRouterWEB, prefix="/Basic/WEB", tags=["Document_Representation"])
+app.include_router(AdditionalRouterAPI, prefix="/Additional/API")
 
 @app.get("/")
 def read_basic_root():

@@ -125,7 +125,6 @@ common_abbreviations= {
   "IA": "Iowa",
   "ID": "Idaho",
   "IL": "Illinois",
-  "IN": "Indiana",
   "KS": "Kansas",
   "KY": "Kentucky",
   "LA": "Louisiana",

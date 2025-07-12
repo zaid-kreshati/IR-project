@@ -19,10 +19,22 @@ interface SearchResponse {
   };
 }
 
+interface RefinementResponse {
+  results: {
+    suggesstions: string[]; // Fixed typo in interface to match API response
+    corrected_query: string;
+  };
+}
+
 interface SearchData {
   matchedCount: number;
   results: SearchResultItem[];
   executionTime: number;
+}
+
+interface QueryRefinement {
+  suggestions: string[];
+  correctedQuery: string;
 }
 
 const Home: React.FC = () => {
@@ -37,6 +49,7 @@ const Home: React.FC = () => {
   const [searchData, setSearchData] = useState<SearchData | null>(null);
   const [topK, setTopK] = useState<number>(10);
   const [threshold, setThreshold] = useState<number>(0.1);
+  const [queryRefinement, setQueryRefinement] = useState<QueryRefinement | null>(null);
   const navigate = useNavigate();
 
   const modelOptions = ["TF-IDF", "EMBEDDING", "BM25", "HYBRID"];
@@ -138,6 +151,17 @@ const Home: React.FC = () => {
 
       setSearchData({ matchedCount, results, executionTime });
       setMessage(`Found ${res.data.results.matched_count} results for "${query}"`);
+
+      const query_refinement = await axios.get<RefinementResponse>(`http://localhost:8000/Additional/API/refine`, {
+        params: {
+          query: query
+        }
+      });
+      
+      setQueryRefinement({
+        suggestions: query_refinement.data.results.suggesstions, // Updated to match API response structure
+        correctedQuery: query_refinement.data.results.corrected_query
+      });
     } catch (err: any) {
       console.error(err);
       setMessage("❌ Error during search. See console.");
@@ -154,7 +178,7 @@ const Home: React.FC = () => {
           </h2>
 
           <div className="space-y-6">
-            <div className="bg-white p-6 rounded-lg shadow-sm">
+            <div className="bg-white  rounded-lg shadow-sm">
               <label className="block mb-2 text-lg font-semibold text-gray-700">Select Dataset</label>
               <select
                 value={selectedDataset}
@@ -170,7 +194,7 @@ const Home: React.FC = () => {
               </select>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-sm">
+            <div className="bg-white  rounded-lg shadow-sm">
               <label className="block mb-2 text-lg font-semibold text-gray-700">
                 Select Representation Model
               </label>
@@ -188,7 +212,7 @@ const Home: React.FC = () => {
               </select>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-sm">
+            <div className="bg-white  rounded-lg shadow-sm">
               <label className="block mb-2 text-lg font-semibold text-gray-700">
                 Number of Results
               </label>
@@ -201,7 +225,7 @@ const Home: React.FC = () => {
               />
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-sm">
+            <div className="bg-white  rounded-lg shadow-sm">
               <label className="block mb-2 text-lg font-semibold text-gray-700">
                 Similarity Threshold
               </label>
@@ -228,7 +252,7 @@ const Home: React.FC = () => {
               Build Vectorizer
             </button>
 
-            <div className="bg-white p-4 rounded-lg shadow-sm">
+            <div className="bg-white p-2 rounded-lg shadow-sm">
               <label className="flex items-center space-x-3 cursor-pointer">
                 <input
                   type="checkbox"
@@ -241,7 +265,7 @@ const Home: React.FC = () => {
             </div>
 
             {message && (
-              <div className={`p-4 rounded-lg ${message.includes('❌') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+              <div className={`p-2 rounded-lg ${message.includes('❌') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
                 {message}
               </div>
             )}
@@ -256,6 +280,37 @@ const Home: React.FC = () => {
           <div className="mb-6">
             <SearchBar onSearch={handleSearch} />
           </div>
+
+          {/* Query Refinement Section */}
+          {queryRefinement && (
+            <div className="mb-6 bg-white rounded-lg p-4 shadow-sm">
+              {queryRefinement.correctedQuery && (
+                <div className="mb-3">
+                  <span className="text-gray-600">Did you mean: </span>
+                  <span className="text-blue-600 font-medium cursor-pointer hover:underline" 
+                        onClick={() => handleSearch(queryRefinement.correctedQuery)}>
+                    {queryRefinement.correctedQuery}
+                  </span>
+                </div>
+              )}
+              {queryRefinement.suggestions.length > 0 && (
+                <div>
+                  <span className="text-gray-600">Related searches: </span>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {queryRefinement.suggestions.map((suggestion, index) => (
+                      <span
+                        key={index}
+                        className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full cursor-pointer hover:bg-blue-100"
+                        onClick={() => handleSearch(suggestion)}
+                      >
+                        {suggestion}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="flex-1 bg-blue-50 rounded-xl p-6 shadow-inner">
             <div className="overflow-auto max-h-[600px]">
