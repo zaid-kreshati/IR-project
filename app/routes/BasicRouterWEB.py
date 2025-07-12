@@ -2,6 +2,7 @@
 from fastapi import FastAPI, APIRouter
 from pymongo import MongoClient
 from typing import List
+from bson import ObjectId
 
 
 app = FastAPI(
@@ -40,6 +41,21 @@ def get_datasets():
     except Exception as e:
         return {"error": str(e)}
 
+@router.get("/get-document", tags=["Document"])
+def get_document(doc_id: str, collection_name: str):
+    try:
+        print("hererer")
+        client = MongoClient("mongodb://localhost:27017/")
+        db = client["ir_project"]
+        document = db[collection_name].find_one({"doc_id": doc_id})
+        
+        if document:
+            # Convert ObjectId to string
+            document["_id"] = str(document["_id"])
+            return {"document": document}
+        return {"error": "Document not found"}
+    except Exception as e:
+        return {"error": str(e)}
 
 # -------------------------------
 # 🔗 Register Routes

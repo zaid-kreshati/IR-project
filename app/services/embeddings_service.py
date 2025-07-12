@@ -75,24 +75,24 @@ class EmbeddingSearcher:
         self.index.build(50)  # 10 trees for faster search (can be adjusted for speed vs. accuracy)
   
         
-    def search(self, query, top_k=500000, similarity_threshold=0.001):
+    def search(self, query, top_k=500000, threshold=0.1):
         start_time = time.time()
         
         query_embedding = self.model.encode(query).reshape(1, -1)
         similarities = cosine_similarity(query_embedding, self.document_embeddings).flatten()
-        # Map doc_id to similarity score
+        # Map doc_id to similarity score and body
         document_ranking = {
-            doc_id: float(score)
-            for (doc_id, _), score in zip(self.documents, similarities)
+            doc_id: {"score": float(score), "body": body}
+            for (doc_id, body), score in zip(self.documents, similarities)
         }
         # Filter documents by threshold
         filtered_documents = {
-            doc_id: score
-            for doc_id, score in document_ranking.items()
-            if score > similarity_threshold
+            doc_id: doc_info
+            for doc_id, doc_info in document_ranking.items()
+            if doc_info["score"] > threshold
         }
         # Sort by similarity descending
-        sorted_dict = sorted(filtered_documents.items(), key=lambda item: item[1], reverse=True)
+        sorted_dict = sorted(filtered_documents.items(), key=lambda item: item[1]["score"], reverse=True)
         matching_count = len(filtered_documents)
         
         end_time = time.time()
@@ -101,8 +101,8 @@ class EmbeddingSearcher:
         return {
             "matched_count": matching_count,
             "results": [
-                {"doc_id": doc_id, "score": score}
-                for doc_id, score in sorted_dict[:top_k]
+                {"doc_id": doc_id, "score": doc_info["score"], "body": doc_info["body"]}
+                for doc_id, doc_info in sorted_dict[:top_k]
             ],
             "execution_time": execution_time
         }
@@ -158,18 +158,19 @@ class EmbeddingSearcher:
         return self
 
 
-    def search_vector_index(self, query, top_k=500000):
+    def search_vector_index(self, query, top_k=500000, threshold=0.0):
         start_time = time.time()
         
         query_embedding = self.model.encode(query).reshape(1, -1)
         indices = self.index.get_nns_by_vector(query_embedding.flatten(), top_k)
         results = []
         for idx in indices:
-            doc_id = self.documents[idx][0]
+            doc_id, body = self.documents[idx]
             similarity = float(1.0 - cosine_similarity(query_embedding, self.document_embeddings[idx].reshape(1, -1))[0][0])
-            results.append({"doc_id": doc_id, "score": similarity})
+            if similarity > threshold:
+                results.append({"doc_id": doc_id, "score": similarity, "body": body})
     
-        matching_count = len(results)  # Simply count all returned results
+        matching_count = len(results)  # Count only filtered results
         
         end_time = time.time()
         execution_time = end_time - start_time

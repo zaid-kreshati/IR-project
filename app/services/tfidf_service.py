@@ -27,12 +27,13 @@ class VectorSpaceModel:
         self.collection_name = name.replace("/", "-").replace("\\", "_").strip()
         self.documents = []
         self.doc_ids = []  # Store document IDs separately
+        self.doc_bodies = []  # Store document bodies separately
         self.tfidf_matrix = None
         self.feature_names = None
         self.inverted_index = None
 
-    def search_tfidf(self, query: str, top_k: int = 10):
-        print("🔍 Searching TF-IDF model...")
+    def search_tfidf(self, query: str, top_k: int = 10, threshold=0.0):
+        # print("🔍 Searching TF-IDF model...")
         start_time = time.time()
         
         if not query or not query.strip():
@@ -46,10 +47,14 @@ class VectorSpaceModel:
         top_indices = similarities.argsort()[::-1][:top_k]
 
         matching_docs = [
-            {"doc_id": self.doc_ids[i], "score": float(similarities[i])}
-            for i in top_indices if similarities[i] > 0
+            {
+                "doc_id": self.doc_ids[i],
+                "score": float(similarities[i]),
+                "body": self.doc_bodies[i]
+            }
+            for i in top_indices if similarities[i] > threshold
         ]
-        matching_count = sum(1 for score in similarities if score > 0)
+        matching_count = sum(1 for score in similarities if score > threshold)
         
         end_time = time.time()
         execution_time = end_time - start_time
@@ -77,6 +82,7 @@ class VectorSpaceModel:
 
         # Separate document IDs and texts
         self.doc_ids, texts = zip(*docs)
+        self.doc_bodies = list(texts)  # Store document bodies
         
         self.tfidf_matrix = self.tfidf_vectorizer.fit_transform(texts)
         self.feature_names = self.tfidf_vectorizer.get_feature_names_out()
@@ -84,7 +90,7 @@ class VectorSpaceModel:
         # Build Inverted Index
         self.build_inverted_index_tfidf()
 
-    def search_with_inverted_index(self, query: str, top_k: int = 10):
+    def search_with_inverted_index(self, query: str, top_k: int = 10, threshold:float =0.0):
         print("🔍 Searching with inverted index...")
         start_time = time.time()
         
@@ -115,10 +121,14 @@ class VectorSpaceModel:
             top_indices = similarities.argsort()[::-1][:top_k]
 
             matching_docs = [
-                {"doc_id": self.doc_ids[list(matched_docs)[i]], "score": float(similarities[i])}
-                for i in top_indices if similarities[i] > 0
+                {
+                    "doc_id": self.doc_ids[list(matched_docs)[i]],
+                    "score": float(similarities[i]),
+                    "body": self.doc_bodies[list(matched_docs)[i]]
+                }
+                for i in top_indices if similarities[i] > threshold
             ]
-            matching_count = sum(1 for score in similarities if score > 0)
+            matching_count = sum(1 for score in similarities if score > threshold)
             
             end_time = time.time()
             execution_time = end_time - start_time
@@ -192,11 +202,13 @@ class VectorSpaceModel:
         matrix_file=f"models/TF-IDF/tfidf_matrix{self.collection_name}.joblib"  
         inverted_index_file = f"models/TF-IDF/inverted_index_{self.collection_name}.joblib"
         doc_ids_file = f"models/TF-IDF/doc_ids_{self.collection_name}.joblib"
+        doc_bodies_file = f"models/TF-IDF/doc_bodies_{self.collection_name}.joblib"
 
         dump(self.inverted_index, inverted_index_file)
         dump(self.tfidf_vectorizer, vectorizer_file)
         dump(self.tfidf_matrix, matrix_file)
         dump(self.doc_ids, doc_ids_file)
+        dump(self.doc_bodies, doc_bodies_file)
         print("✅ Model saved to:", vectorizer_file, "and", matrix_file, "inverted index" , inverted_index_file)
 
     def load(self):
@@ -205,9 +217,11 @@ class VectorSpaceModel:
         matrix_file=f"models/TF-IDF/tfidf_matrix{self.collection_name}.joblib"
         inverted_index_file = f"models/TF-IDF/inverted_index_{self.collection_name}.joblib"
         doc_ids_file = f"models/TF-IDF/doc_ids_{self.collection_name}.joblib"
+        doc_bodies_file = f"models/TF-IDF/doc_bodies_{self.collection_name}.joblib"
 
         self.tfidf_vectorizer = load(vectorizer_file)
         self.tfidf_matrix = load(matrix_file)
         self.feature_names = self.tfidf_vectorizer.get_feature_names_out()
         self.inverted_index = load(inverted_index_file)
         self.doc_ids = load(doc_ids_file)
+        self.doc_bodies = load(doc_bodies_file)

@@ -1,4 +1,5 @@
 ### app/services/bm25_service.py
+from concurrent.futures import thread
 import joblib
 from rank_bm25 import BM25Okapi
 from sklearn.preprocessing import MinMaxScaler
@@ -62,8 +63,9 @@ class BM25Service:
             "inverted_index_size": len(self.inverted_index) if self.inverted_index else None,
         }
 
-    def search(self, query, top_k=10):
+    def search(self, query, top_k=10, threshold=0.0):
         print(f"🔍 Searching BM25 model for collection: {self.collection_name}")
+        print(f"threshold {threshold}")
         start_time = time.time()
         
         if not self.bm25:
@@ -80,14 +82,14 @@ class BM25Service:
         ranked = list(zip(self.raw_documents, normalized))
         sorted_ranked = sorted(ranked, key=lambda x: x[1], reverse=True)
 
-        filtered_ranked = [doc for doc in sorted_ranked if doc[1] > 0]
+        filtered_ranked = [doc for doc in sorted_ranked if doc[1] > threshold]
         
         execution_time = time.time() - start_time
         
         return {
             "matched_count": len(filtered_ranked),
             "results": [
-                {"doc_id": doc[0], "score": score} for doc, score in filtered_ranked[:top_k]
+                {"doc_id": doc[0], "score": score, "body": doc[1]} for doc, score in filtered_ranked[:top_k]
             ],
             "execution_time": execution_time
         }
@@ -114,7 +116,7 @@ class BM25Service:
         self.query_inverted_index = query_inverted_index
         return query_inverted_index
 
-    def search_with_inverted_index(self, query, top_k=10):
+    def search_with_inverted_index(self, query, top_k=10,threshold=0.0):
         print(f"🔍 Searching BM25 model with inverted index for collection: {self.collection_name}")
         start_time = time.time()
         
@@ -125,7 +127,9 @@ class BM25Service:
         query_inverted_index = self.build_query_inverted_index(query)
         
         # Retrieve documents and calculate BM25 scores based on the query inverted index
-        tokenized_query = self.preprocessor(query_inverted_index).split()
+        # tokenized_query = self.preprocessor(query_inverted_index).split()
+        tokenized_query = list(query_inverted_index.keys())
+
         scores = self.bm25.get_scores(tokenized_query)
 
         # Normalize scores between 0 and 1
@@ -136,14 +140,14 @@ class BM25Service:
         ranked = list(zip(self.raw_documents, normalized))
         sorted_ranked = sorted(ranked, key=lambda x: x[1], reverse=True)
 
-        filtered_ranked = [doc for doc in sorted_ranked if doc[1] > 0]
+        filtered_ranked = [doc for doc in sorted_ranked if doc[1] > threshold]
         
         execution_time = time.time() - start_time
         
         return {
             "matching_count": len(filtered_ranked),
             "results": [
-                {"doc_id": doc[0], "score": score} for doc, score in filtered_ranked[:top_k]
+                {"doc_id": doc[0], "score": score, "body": doc[1]} for doc, score in filtered_ranked[:top_k]
             ],
             "execution_time": execution_time
         }

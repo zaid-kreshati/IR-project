@@ -4,7 +4,6 @@ from typing import List
 import time
 from app.services.bm25_service import BM25Service
 from app.services.embeddings_service import EmbeddingSearcher
-from app.services.preprocess_service import preprocess_text, preprocess_text_embeddings
 import asyncio
 
 
@@ -28,53 +27,92 @@ class HybridSearchService:
         await asyncio.to_thread(self.bm25_service.load)
         await asyncio.to_thread(self.embed_service.load)
 
-    async def search(self, query: str, top_k: int = 10):
+    async def search(self, query: str, top_k: int = 10, threshold=0.0):
         print("searching....")
         start_time = time.time()
         
-        bm25_raw = await asyncio.to_thread(self.bm25_service.search, query, 500000)
-        embed_raw = await asyncio.to_thread(self.embed_service.search, query, 500000)
+        # Get top_k results from both services
+        bm25_raw = await asyncio.to_thread(self.bm25_service.search, query, top_k=top_k, threshold=threshold)
+        embed_raw = await asyncio.to_thread(self.embed_service.search, query, top_k=top_k, threshold=threshold)
 
-        # bm25_ranking = [doc['doc_id'] for doc in bm25_raw]  # Extracting doc_id from each dictionary
-        bm25_ranking = [doc['doc_id'] for doc in bm25_raw['results']]  # Extracting from 'results'
+        # Create mappings of doc_id to body and scores
+        bm25_docs = {doc['doc_id']: {'body': doc['body'], 'score': doc['score']} for doc in bm25_raw['results']}
+        embed_docs = {res['doc_id']: {'body': res['body'], 'score': res['score']} for res in embed_raw['results']}
 
-        # bm25_ranking = [doc[0][0] for doc in bm25_raw]  # (doc_id, body), score
-        print(" bm25_ranking:", len(bm25_ranking))
-        embed_ranking = [res["doc_id"] for res in embed_raw["results"]]
-        print("embed_ranking:",len(embed_ranking))
-        # Apply Reciprocal Rank Fusion
-        fused_results = reciprocal_rank_fusion([bm25_ranking, embed_ranking], k=60)
+        # Merge results while preserving scores
+        merged_results = []
+        
+        # Add BM25 results
+        for doc_id, data in bm25_docs.items():
+            merged_results.append({
+                'doc_id': doc_id,
+                'body': data['body'],
+                'score': data['score'],
+                'source': 'bm25'
+            })
+            
+        # Add embedding results
+        for doc_id, data in embed_docs.items():
+            if doc_id not in bm25_docs:  # Avoid duplicates
+                merged_results.append({
+                    'doc_id': doc_id,
+                    'body': data['body'],
+                    'score': data['score'],
+                    'source': 'embedding'
+                })
 
+        # Sort merged results by score
+        merged_results.sort(key=lambda x: x['score'], reverse=True)
+        
         execution_time = time.time() - start_time
         
         return {
-             "matched_count": len(fused_results),
-             "execution_time": round(execution_time, 4),
-             "results": [
-                {"doc_id": doc_id, "score": round(score, 4)}
-                for doc_id, score in fused_results[:top_k]
-            ]
+            "matched_count": len(merged_results),
+            "execution_time": round(execution_time, 4),
+            "results": merged_results[:top_k]
         }
 
-    async def search_with_Index(self, query: str, top_k: int = 10):
+    async def search_with_Index(self, query: str, top_k: int = 10, threshold=0.0):
         print("searching with index....")
         start_time = time.time()
         
-        bm25_raw = await asyncio.to_thread(self.bm25_service.search_with_inverted_index, query, 500000)
-        embed_raw = await asyncio.to_thread(self.embed_service.search_vector_index, query, self.collection_name, 500000)
-        bm25_ranking = [doc['doc_id'] for doc in bm25_raw['results']]  # Extracting from 'results'
-        embed_ranking = [res["doc_id"] for res in embed_raw["results"]]
+        # Get top_k results from both services
+        bm25_raw = await asyncio.to_thread(self.bm25_service.search_with_inverted_index, query, top_k=top_k, threshold=threshold)
+        embed_raw = await asyncio.to_thread(self.embed_service.search_vector_index, query, top_k=top_k, threshold=threshold)
+        
+        # Create mappings of doc_id to body and scores
+        bm25_docs = {doc['doc_id']: {'body': doc['body'], 'score': doc['score']} for doc in bm25_raw['results']}
+        embed_docs = {res['doc_id']: {'body': res['body'], 'score': res['score']} for res in embed_raw['results']}
 
-        # Apply Reciprocal Rank Fusion
-        fused_results = reciprocal_rank_fusion([bm25_ranking, embed_ranking], k=60)
+        # Merge results while preserving scores
+        merged_results = []
+        
+        # Add BM25 results
+        for doc_id, data in bm25_docs.items():
+            merged_results.append({
+                'doc_id': doc_id,
+                'body': data['body'],
+                'score': data['score'],
+                'source': 'bm25'
+            })
+            
+        # Add embedding results
+        for doc_id, data in embed_docs.items():
+            if doc_id not in bm25_docs:  # Avoid duplicates
+                merged_results.append({
+                    'doc_id': doc_id,
+                    'body': data['body'],
+                    'score': data['score'],
+                    'source': 'embedding'
+                })
+
+        # Sort merged results by score
+        merged_results.sort(key=lambda x: x['score'], reverse=True)
 
         execution_time = time.time() - start_time
 
         return {
-             "count": len(fused_results),
-             "execution_time": round(execution_time, 4),
-             "results": [
-                {"doc_id": doc_id, "fused_score": round(score, 4)}
-                for doc_id, score in fused_results[:top_k]
-            ]
+            "matched_count": len(merged_results),
+            "execution_time": round(execution_time, 4),
+            "results": merged_results[:top_k]
         }

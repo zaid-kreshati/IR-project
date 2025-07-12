@@ -41,8 +41,6 @@ def preprocess_text(text: str) -> str:
     # Replace numbers with words
     text = replace_numbers_with_words(text)
 
-    # Normalize country codes if any
-    # text = normalize_country_names(text)
 
     # Remove stopwords
     text = remove_stopwords(text)
@@ -69,7 +67,6 @@ def preprocess_text_embeddings(text):
     text = preprocessing.replace.emojis(text)
     text = preprocessing.replace.urls(text)
     text = preprocessing.remove.accents(text)
-    text = normalize_country_names(text)
     return text
 
 def preprocess_bm25(text):
@@ -83,7 +80,6 @@ def preprocess_bm25(text):
     text = preprocessing.replace.emojis(text)
     text = preprocessing.replace.urls(text)
     text = preprocessing.remove.accents(text)
-    text = normalize_country_names(text)
     return text
 
 
@@ -121,10 +117,3 @@ def chat_conversion(text: str) -> str:
     return " ".join([chat_words.get(word.upper(), word) for word in text.split()])
 
 
-def normalize_country_names(text: str) -> str:
-    tokens = text.split()
-    normalized_tokens = []
-    for token in tokens:
-        country = pycountry.countries.get(alpha_2=token.upper()) or pycountry.countries.get(alpha_3=token.upper())
-        normalized_tokens.append(country.name.lower() if country else token)
-    return " ".join(normalized_tokens)

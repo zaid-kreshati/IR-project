@@ -3,11 +3,12 @@ import DatasetSelector from "../components/DatasetSelector";
 import ModelSelector from "../components/ModelSelector";
 import axios from "axios";
 import SearchBar from "../components/SearchBar";
+import { useNavigate } from 'react-router-dom';
 
 interface SearchResultItem {
   doc_id: number;
   score: number;
-
+  body: string;
 }
 
 interface SearchResponse {
@@ -28,12 +29,15 @@ const Home: React.FC = () => {
   const [datasets, setDatasets] = useState<string[]>([]);
   const [selectedDataset, setSelectedDataset] = useState<string>("");
   const [selectedModel, setSelectedModel] = useState<string>("");
+  const [document_id, setDocument_id] = useState<number>(0);
   const [message, setMessage] = useState("");
   const [useIndex, setUseIndex] = useState(true);
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [executionTime, setExecutionTime] = useState<number>(0);
   const [searchData, setSearchData] = useState<SearchData | null>(null);
   const [topK, setTopK] = useState<number>(10);
+  const [threshold, setThreshold] = useState<number>(0.1);
+  const navigate = useNavigate();
 
   const modelOptions = ["TF-IDF", "EMBEDDING", "BM25", "HYBRID"];
 
@@ -125,6 +129,7 @@ const Home: React.FC = () => {
         query,
         top_k: topK,
         collection_name,
+        threshold: threshold,
       });
 
       const matchedCount = res.data.results.matched_count;
@@ -143,7 +148,7 @@ const Home: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 p-8">
       <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-lg p-8 flex space-x-12">
         {/* Left side */}
-        <div className="flex-1 max-w-md space-y-8 bg-gradient-to-r from-blue-50 to-blue-100">
+        <div className="w-1/4 space-y-8 bg-gradient-to-r from-blue-50 to-blue-100">
           <h2 className="text-3xl font-bold text-gray-800 mb-8 border-b pb-4">
             Information Retrieval System
           </h2>
@@ -196,6 +201,26 @@ const Home: React.FC = () => {
               />
             </div>
 
+            <div className="bg-white p-6 rounded-lg shadow-sm">
+              <label className="block mb-2 text-lg font-semibold text-gray-700">
+                Similarity Threshold
+              </label>
+              <div className="flex items-center space-x-4">
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={threshold}
+                  onChange={(e) => setThreshold(parseFloat(e.target.value))}
+                  className="flex-grow h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                />
+                <span className="w-16 text-center font-medium text-gray-700">
+                  {threshold.toFixed(2)}
+                </span>
+              </div>
+            </div>
+
             <button
               onClick={handleBuildVectorizer}
               className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
@@ -227,7 +252,7 @@ const Home: React.FC = () => {
         <div className="w-0.5 bg-blue-500"></div>
 
         {/* Right side: Search bar and results */}
-        <div className="flex-1 flex flex-col">
+        <div className="w-3/4 flex flex-col">
           <div className="mb-6">
             <SearchBar onSearch={handleSearch} />
           </div>
@@ -236,33 +261,56 @@ const Home: React.FC = () => {
             <div className="overflow-auto max-h-[600px]">
               {searchData ? (
                 <>
-                  <p className="text-lg font-semibold mb-4 text-gray-700">
-                    Matched Results: {searchData.matchedCount}
-                  </p>
-                  <p className="text-lg font-semibold mb-4 text-gray-700">
-                    Execution Time: {searchData.executionTime.toFixed(3)} seconds
-                  </p>
-                  <div className="space-y-4">
+                  <div className="bg-white rounded-lg p-4 mb-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex items-center">
+                        <span className="text-gray-600">Matched Results:</span>
+                        <span className="ml-2 font-semibold text-blue-600">{searchData.matchedCount}</span>
+                      </div>
+                      <div className="flex items-center">
+                        <span className="text-gray-600">Execution Time:</span>
+                        <span className="ml-2 font-semibold text-blue-600">{searchData.executionTime.toFixed(3)} seconds</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-6">
                     {searchData.results.map((item, index) => (
                       <div
                         key={item.doc_id}
-                        className="bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow"
+                        className="bg-white p-6 rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
                       >
-                        <div className="flex justify-between items-center">
+                        <div className="flex justify-between items-center mb-4">
                           <div className="flex items-center">
-                            <span className="font-medium text-blue-600 mr-3">#{index + 1}</span>
-                            <span className="font-medium text-gray-700">Document ID: {item.doc_id}</span>
+                            <span className="text-xl font-semibold text-blue-600 mr-4">#{index + 1}</span>
+                            
+                            <a 
+                              href={`/Basic/WEB/get-document?doc_id=${item.doc_id}&collection_name=${selectedDataset}`}>
+                              View Details
+                            </a>
+
                           </div>
-                          <span className="text-blue-600 font-semibold">
-                            Score: {item.score.toFixed(3)}
-                          </span>
+                          <div className="bg-blue-50 px-4 py-2 rounded-full">
+                            <span className="text-blue-700 font-semibold">
+                              Score: {item.score.toFixed(3)}
+                            </span>
+                          </div>
                         </div>
+                        {item.body && (
+                          <div className="mt-3">
+                            <h4 className="text-sm font-medium text-gray-500 mb-2">Document Content:</h4>
+                            <p className="text-gray-700 leading-relaxed">
+                              {item.body.length > 300 ? `${item.body.substring(0, 300)}...` : item.body}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
                 </>
               ) : (
-                <p className="text-gray-500 text-center py-8">No results yet. Try searching above!</p>
+                <div className="text-center py-12">
+                  <p className="text-gray-500 text-lg">No results yet. Try searching above!</p>
+                </div>
               )}
             </div>
           </div>

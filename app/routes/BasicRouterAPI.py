@@ -1,4 +1,5 @@
 # app/routes/BasicRouter.py
+import re
 from fastapi import FastAPI, Query, APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -6,6 +7,7 @@ from app.services.tfidf_service import VectorSpaceModel
 from app.services.embeddings_service import EmbeddingSearcher  # Assumes this exists
 from app.services.bm25_service import BM25Service
 from app.services.hybrid_service import HybridSearchService  # ⬅️ Import this at the top
+from app.services.preprocess_service import preprocess_text,preprocess_text_embeddings,preprocess_bm25
 
 app = FastAPI(
     title="Information Retrieval System",
@@ -20,6 +22,7 @@ router = APIRouter(tags=["TF-IDF"])
 # -------------------------------
 
 class QueryRequest(BaseModel):
+    threshold:float
     query: str
     top_k: int = 10
     collection_name: str = "documents"
@@ -32,7 +35,7 @@ class QueryRequest(BaseModel):
 async def tfidf_search(request: QueryRequest):
     try:
         vsm = VectorSpaceModel(request.collection_name)
-        results = vsm.search_tfidf(request.query, top_k=request.top_k)
+        results = vsm.search_tfidf(request.query, top_k=request.top_k,threshold=request.threshold)
         return {"results": results}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -41,7 +44,7 @@ async def tfidf_search(request: QueryRequest):
 async def tfidf_search_with_inverted_index(request: QueryRequest):
     try:
         vsm = VectorSpaceModel(request.collection_name)
-        results = vsm.search_with_inverted_index(request.query, top_k=request.top_k)
+        results = vsm.search_with_inverted_index(request.query, top_k=request.top_k, threshold=request.threshold)
         return {"results": results}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -66,6 +69,13 @@ def load_tfidf(collection_name: str = "documents"):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/preprocess/TF-IDF")
+def preprocess_tfidf(query: str = "query"):
+    try:
+        result=preprocess_text(query)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 # -------------------------------
 # 🤖 Embedding Routes
 # -------------------------------
@@ -95,7 +105,7 @@ async def embedded_search(request: QueryRequest):
     try:
         embeddings = EmbeddingSearcher(collection_name=request.collection_name)
         embeddings.load()
-        results = embeddings.search(request.query, top_k=request.top_k)
+        results = embeddings.search(request.query, top_k=request.top_k,threshold=request.threshold)
         return {"results": results}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -105,8 +115,16 @@ async def embedded_search(request: QueryRequest):
     try:
         embeddings = EmbeddingSearcher(collection_name=request.collection_name)
         embeddings.load()
-        results = embeddings.search_vector_index(request.query, top_k=request.top_k)
+        results = embeddings.search_vector_index(request.query, top_k=request.top_k, threshold=request.threshold)
         return {"results": results}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/preprocess/EMBEDDING")
+def preprocess_embeddings(query: str = "query"):
+    try:
+        result=preprocess_text_embeddings(query)
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -131,7 +149,7 @@ def search_bm25(request: QueryRequest):
     try:
         bm25 = BM25Service(request.collection_name)
         bm25.load()
-        results = bm25.search(request.query, top_k=request.top_k)
+        results = bm25.search(request.query, top_k=request.top_k,threshold=request.threshold)
         return {"results": results}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -141,7 +159,7 @@ def search_bm25(request: QueryRequest):
     try:
         bm25 = BM25Service(request.collection_name)
         bm25.load()
-        results = bm25.search(request.query, top_k=request.top_k)
+        results = bm25.search(request.query, top_k=request.top_k,threshold=request.threshold)
         return {"results": results}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -156,6 +174,17 @@ def load_bm25_info(collection_name: str = Query(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@router.get("/preprocess/BM25")
+def preprocess_text_bm25(query: str = "query"):
+    try:
+        result=preprocess_bm25(query)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
 # ------------------
 #       hybrid
 # ------------------
@@ -167,7 +196,7 @@ async def hybrid_rrf_search(request: QueryRequest):
         print("Loading models for collection1:", request.collection_name)
         await service.load_models()
         print("Loaded models for collection1:", request.collection_name)
-        results = await service.search(query=request.query, top_k=request.top_k)
+        results = await service.search(query=request.query, top_k=request.top_k, threshold=request.threshold)
         return {
             "query": request.query,
             "results": results
@@ -182,7 +211,7 @@ async def hybrid_rrf_search(request: QueryRequest):
         service = HybridSearchService(request.collection_name)
         await service.load_models()
         print("Loaded models for collection1:", request.collection_name)
-        results = await service.search(query=request.query, top_k=request.top_k)
+        results = await service.search_with_Index(query=request.query, top_k=request.top_k, threshold=request.threshold)
         return {
             "query": request.query,
             "results": results
