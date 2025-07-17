@@ -30,7 +30,6 @@ class VectorSpaceModel:
         self.doc_bodies = []  # Store document bodies separately
         self.tfidf_matrix = None
         self.feature_names = None
-        self.inverted_index = None
 
     def search_tfidf(self, query: str, top_k: int = 10, threshold=0.0):
         # print("🔍 Searching TF-IDF model...")
@@ -80,8 +79,7 @@ class VectorSpaceModel:
                 # Truncate extremely long document IDs if needed
                 doc_id = str(doc["doc_id"])[:1000] if len(str(doc["doc_id"])) > 1000 else doc["doc_id"]
                 docs.append((doc_id, doc["body"]))
-            if len(docs) >= batch_size:
-                break
+            
 
         if not docs:
             raise ValueError("No valid documents found.")

@@ -193,9 +193,7 @@ def preprocess_text_bm25(query: str = "query"):
 async def hybrid_rrf_search(request: QueryRequest):
     try:
         service = HybridSearchService(request.collection_name)
-        print("Loading models for collection1:", request.collection_name)
         await service.load_models()
-        print("Loaded models for collection1:", request.collection_name)
         results = await service.search(query=request.query, top_k=request.top_k, threshold=request.threshold)
         return {
             "query": request.query,

@@ -64,8 +64,6 @@ class BM25Service:
         }
 
     def search(self, query, top_k=10, threshold=0.0):
-        print(f"🔍 Searching BM25 model for collection: {self.collection_name}")
-        print(f"threshold {threshold}")
         start_time = time.time()
         
         if not self.bm25:
@@ -117,7 +115,6 @@ class BM25Service:
         return query_inverted_index
 
     def search_with_inverted_index(self, query, top_k=10,threshold=0.0):
-        print(f"🔍 Searching BM25 model with inverted index for collection: {self.collection_name}")
         start_time = time.time()
         
         if not self.bm25:

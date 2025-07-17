@@ -38,7 +38,7 @@ def preprocess_text(text: str) -> str:
     text = chat_conversion(text)
 
     # Replace numbers with words
-    text = replace_numbers_with_words(text)
+    # text = replace_numbers_with_words(text)
 
 
     # Remove stopwords
@@ -47,10 +47,13 @@ def preprocess_text(text: str) -> str:
     # Remove one-letter words
     text = remove_one_letter_words(text)
 
-    # Optional stemming (you can replace with lem_words if needed)
-    # text = stem_words(text)
 
     tokens = word_tokenize(text)
+    
+    tokens = [
+        token for token in tokens
+        if len(token) < 100 and not (token.isdigit() and len(token) > 100)
+    ]
 
     return tokens
 
