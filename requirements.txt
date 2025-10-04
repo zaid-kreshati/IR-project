@@ -35,3 +35,13 @@ uvicorn==0.34.3
 warc3-wet==0.2.5
 warc3-wet-clueweb09==0.2.5
 zlib-state==0.1.9
+sicket-learn==0.1.0
+nltk==3.9.1
+pandas==2.2.3
+textacy==0.13.0
+num2words==0.5.14
+spellchecker==0.8.3
+indexer==0.1.0
+sentence_transformers==5.0.0
+rank_bm25==0.2.2
+matplotlib==3.9.2
